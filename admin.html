@@ -236,23 +236,52 @@
             }
         }
 
-        function editParticipant(index) {
-            const p = participants[index];
-            const newName = prompt('Новое имя:', p.name);
-            if (!newName) return;
-            
-            const newEmail = prompt('Новая почта:', p.email);
-            if (!newEmail) return;
-            
-            const newWishlist = prompt('Новый виш-лист:', p.wishlist || '');
+        async function editParticipant(index) {
+    const p = participants[index];
+    
+    const newName = prompt('Новое имя:', p.name);
+    if (newName === null || newName.trim() === '') return;
+    
+    const newEmail = prompt('Новая почта:', p.email);
+    if (newEmail === null || newEmail.trim() === '') return;
+    
+    const newWishlist = prompt('Новый виш-лист:', p.wishlist || '');
+    
+    const token = localStorage.getItem('adminToken');
+    
+    try {
+        // ✅ ОТПРАВЛЯЕМ НА СЕРВЕР
+        const response = await fetch(`${API_BASE}/participants/${p.id}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ 
+                name: newName.trim(), 
+                email: newEmail.trim(), 
+                wishlist: newWishlist || '' 
+            })
+        });
 
-            participants[index].name = newName;
-            participants[index].email = newEmail;
-            participants[index].wishlist = newWishlist || 'Нет пожеланий';
+        if (response.ok) {
+            // ✅ ОБНОВЛЯЕМ ЛОКАЛЬНЫЕ ДАННЫЕ
+            participants[index].name = newName.trim();
+            participants[index].email = newEmail.trim();
+            participants[index].wishlist = newWishlist || '';
             
             renderTable();
-            showMessage('✅ Данные обновлены!');
+            showMessage('✅ Участник обновлён!');
+        } else {
+            const data = await response.json();
+            showMessage('❌ ' + (data.error || 'Ошибка'), 'error');
         }
+    } catch (error) {
+        showMessage('❌ Ошибка подключения', 'error');
+        console.error('Edit error:', error);
+    }
+}
+
 
         async function deleteParticipant(index) {
             if (confirm('⚠️ Удалить этого участника?')) {

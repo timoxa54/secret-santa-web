@@ -151,4 +151,36 @@ app.post('/api/send-emails', async (req, res) => {
     }
 });
 
+// 7. Обновить участника (редактирование)
+app.put('/api/participants/:id', (req, res) => {
+    const auth = req.headers.authorization;
+    if (!auth || !auth.includes('admin-token')) {
+        return res.status(401).json({ error: 'Не авторизован' });
+    }
+
+    const id = req.params.id;
+    const { name, email, wishlist } = req.body;
+
+    if (!name || !email) {
+        return res.status(400).json({ error: 'Имя и email обязательны' });
+    }
+
+    const participantIndex = participants.findIndex(p => p.id === id);
+    if (participantIndex === -1) {
+        return res.status(404).json({ error: 'Участник не найден' });
+    }
+
+    // ✅ ОБНОВЛЯЕМ НА СЕРВЕРЕ
+    participants[participantIndex] = {
+        ...participants[participantIndex],
+        name: name.trim(),
+        email: email.trim(),
+        wishlist: wishlist || ''
+    };
+
+    console.log('✅ Участник обновлён:', participants[participantIndex]);
+    res.json({ success: true, participant: participants[participantIndex] });
+});
+
+
 module.exports = app;
