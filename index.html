@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secret Santa 🎅</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="form-wrapper">
+            <h1>🎁 Secret Santa 2025</h1>
+            <p class="subtitle">Заполни форму и присоединись к розыгрышу!</p>
+            
+            <form id="participantForm">
+                <div class="form-group">
+                    <label for="name">Твоё имя *</label>
+                    <input 
+                        type="text" 
+                        id="name" 
+                        name="name" 
+                        placeholder="Иван Петров"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="email">Твоя почта *</label>
+                    <input 
+                        type="email" 
+                        id="email" 
+                        name="email" 
+                        placeholder="ivan@example.com"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="wishlist">Что ты хочешь на Новый год? 🎄</label>
+                    <textarea 
+                        id="wishlist" 
+                        name="wishlist" 
+                        placeholder="Напиши, что бы тебе понравилось получить в подарок..."
+                        rows="4"
+                    ></textarea>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Отправить заявку</button>
+            </form>
+
+            <div id="message" class="message"></div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        // Обработчик формы
+        document.getElementById('participantForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const messageEl = document.getElementById('message');
+            
+            const formData = {
+                name: document.getElementById('name').value.trim(),
+                email: document.getElementById('email').value.trim(),
+                wishlist: document.getElementById('wishlist').value.trim()
+            };
+
+            // Валидация
+            if (!formData.name || !formData.email) {
+                messageEl.innerHTML = '❌ Заполни все обязательные поля!';
+                messageEl.classList.add('error');
+                return;
+            }
+
+            try {
+                const response = await fetch('http://localhost:3000/api/participants', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    messageEl.innerHTML = '✅ Спасибо! Твоя заявка принята. Скоро узнаешь, кому дарить подарок!';
+                    messageEl.classList.remove('error');
+                    messageEl.classList.add('success');
+                    document.getElementById('participantForm').reset();
+                } else {
+                    messageEl.innerHTML = `❌ Ошибка: ${data.error}`;
+                    messageEl.classList.add('error');
+                }
+            } catch (error) {
+                messageEl.innerHTML = '❌ Ошибка подключения к серверу';
+                messageEl.classList.add('error');
+                console.error('Error:', error);
+            }
+        });
+    </script>
+</body>
+</html>
