@@ -28,9 +28,18 @@ const transporter = nodemailer.createTransporter({
     }
 });
 
+// ✅ ФУНКЦИЯ ПРОВЕРКИ АВТОРИЗАЦИИ (одна для всех!)
+function checkAdminAuth(req, res, next) {
+    const auth = req.headers.authorization;
+    if (!auth || auth !== 'Bearer admin-token-123') {
+        return res.status(401).json({ error: 'Не авторизован' });
+    }
+    next();
+}
+
 // === API ROUTES ===
 
-// 1. Добавление участника (из формы)
+// 1. Добавление участника (из формы) - БЕЗ АВТОРИЗАЦИИ
 app.post('/api/participants', (req, res) => {
     const { name, email, wishlist } = req.body;
     
@@ -47,17 +56,13 @@ app.post('/api/participants', (req, res) => {
     };
 
     participants.push(newParticipant);
-    console.log('Добавлен участник:', newParticipant);
+    console.log('✅ Добавлен:', newParticipant);
     
     res.json({ success: true, participant: newParticipant });
 });
 
-// 2. Получить всех участников (админ)
-app.get('/api/participants', (req, res) => {
-    const auth = req.headers.authorization;
-    if (!auth || auth !== 'Bearer admin-token-123') {
-        return res.status(401).json({ error: 'Не авторизован' });
-    }
+// 2. Получить всех участников (АДМИН)
+app.get('/api/participants', checkAdminAuth, (req, res) => {
     res.json(participants);
 });
 
@@ -71,32 +76,21 @@ app.post('/api/admin/login', (req, res) => {
     }
 });
 
-// 4. Удалить участника
-app.delete('/api/participants/:id', (req, res) => {
-    const auth = req.headers.authorization;
-    if (!auth || auth !== 'Bearer admin-token-123') {
-        return res.status(401).json({ error: 'Не авторизован' });
-    }
-
+// 4. Удалить участника (АДМИН)
+app.delete('/api/participants/:id', checkAdminAuth, (req, res) => {
     const id = req.params.id;
     participants = participants.filter(p => p.id !== id);
     res.json({ success: true, participants });
 });
 
-// 5. Назначить подарки (алгоритм Secret Santa)
-app.post('/api/generate-assignments', (req, res) => {
-    const auth = req.headers.authorization;
-    if (!auth || auth !== 'Bearer admin-token-123') {
-        return res.status(401).json({ error: 'Не авторизован' });
-    }
-
+// 5. Назначить подарки (АДМИН)
+app.post('/api/generate-assignments', checkAdminAuth, (req, res) => {
     const { participants: inputParticipants } = req.body;
     
     if (inputParticipants.length < 2) {
         return res.status(400).json({ error: 'Нужно минимум 2 участника' });
     }
 
-    // Алгоритм Secret Santa (круговая перестановка)
     const shuffled = [...inputParticipants].sort(() => Math.random() - 0.5);
     const assignments = shuffled.map((participant, index) => {
         const assignedTo = shuffled[(index + 1) % shuffled.length].name;
@@ -107,13 +101,8 @@ app.post('/api/generate-assignments', (req, res) => {
     res.json({ success: true, participants: assignments });
 });
 
-// 6. Отправить emails
-app.post('/api/send-emails', async (req, res) => {
-    const auth = req.headers.authorization;
-    if (!auth || auth !== 'Bearer admin-token-123') {
-        return res.status(401).json({ error: 'Не авторизован' });
-    }
-
+// 6. Отправить emails (АДМИН)
+app.post('/api/send-emails', checkAdminAuth, async (req, res) => {
     const { participants: assignments } = req.body;
     
     if (!EMAIL_USER || !EMAIL_PASSWORD) {
@@ -121,26 +110,21 @@ app.post('/api/send-emails', async (req, res) => {
     }
 
     try {
-        const mailOptions = {
-            from: `"Secret Santa" <${EMAIL_USER}>`,
-            subject: '🎁 Твой Secret Santa назначен!',
-            html: `
-                <h1>🎄 Secret Santa 2025</h1>
-                <p><strong>Ты даришь подарок:</strong></p>
-                <h2>${assignments.find(p => p.assignedTo === req.body.fromName)?.name || 'Неизвестно'}</h2>
-                <p><strong>Его виш-лист:</strong></p>
-                <blockquote>${assignments.find(p => p.assignedTo === req.body.fromName)?.wishlist || 'Нет пожеланий'}</blockquote>
-                <p>Бюджет: 1000-3000 руб.</p>
-                <hr>
-                <small>С любовью, Secret Santa 🎅</small>
-            `
-        };
-
-        // Отправляем каждому
         for (const participant of assignments) {
-            mailOptions.to = participant.email;
-            mailOptions.text = `Ты даришь: ${participant.assignedTo}. Виш-лист: ${participant.wishlist}`;
-            
+            const mailOptions = {
+                from: `"Secret Santa" <${EMAIL_USER}>`,
+                to: participant.email,
+                subject: '🎁 Твой Secret Santa назначен!',
+                html: `
+                    <h1>🎄 Secret Santa 2025</h1>
+                    <p>Привет, <strong>${participant.name}</strong>!</p>
+                    <p>Ты даришь подарок: <strong>${participant.assignedTo}</strong></p>
+                    <p>Виш-лист: <em>${participant.wishlist || 'Нет пожеланий'}</em></p>
+                    <hr>
+                    <small>С любовью, Secret Santa 🎅</small>
+                `
+            };
+
             await transporter.sendMail(mailOptions);
         }
 
@@ -151,13 +135,8 @@ app.post('/api/send-emails', async (req, res) => {
     }
 });
 
-// 7. Обновить участника (редактирование)
-app.put('/api/participants/:id', (req, res) => {
-    const auth = req.headers.authorization;
-    if (!auth || !auth.includes('admin-token')) {
-        return res.status(401).json({ error: 'Не авторизован' });
-    }
-
+// 7. ✅ РЕДАКТИРОВАТЬ УЧАСТНИКА (АДМИН)
+app.put('/api/participants/:id', checkAdminAuth, (req, res) => {
     const id = req.params.id;
     const { name, email, wishlist } = req.body;
 
@@ -170,7 +149,6 @@ app.put('/api/participants/:id', (req, res) => {
         return res.status(404).json({ error: 'Участник не найден' });
     }
 
-    // ✅ ОБНОВЛЯЕМ НА СЕРВЕРЕ
     participants[participantIndex] = {
         ...participants[participantIndex],
         name: name.trim(),
@@ -178,9 +156,8 @@ app.put('/api/participants/:id', (req, res) => {
         wishlist: wishlist || ''
     };
 
-    console.log('✅ Участник обновлён:', participants[participantIndex]);
+    console.log('✅ Обновлён:', participants[participantIndex]);
     res.json({ success: true, participant: participants[participantIndex] });
 });
-
 
 module.exports = app;
